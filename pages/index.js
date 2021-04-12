@@ -19,7 +19,7 @@ export default function Home({ refreshToken, error }) {
   };
 
   const copyToClipboard = async () => {
-    const url = `http://localhost:3000/widget.html?refresh_token=${refreshToken}`;
+    const url = `${process.env.URI}/widget.html?refresh_token=${refreshToken}`;
 
     try {
       await navigator.clipboard.writeText(url);
@@ -87,7 +87,7 @@ export default function Home({ refreshToken, error }) {
                   type="text"
                   readOnly="readonly"
                   className={hidden ? styles["input-blurred"] : styles.input}
-                  value={`http://localhost:3000/widget.html?refresh_token=${refreshToken}`}
+                  value={`${process.env.URI}/widget.html?refresh_token=${refreshToken}`}
                 />
                 {hidden && (
                   <>
