@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Currently Playing on Spotify</title>
+    <style>
+      * {
+        border: 0;
+        margin: 0;
+      }
+
+      body {
+        font-family: sans-serif;
+        color: white;
+        width: 100vw;
+        height: 100vh;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+      }
+
+      h1 {
+        font-size: 24px;
+      }
+
+      h2 {
+        font-size: 15px;
+        margin-bottom: 4px;
+      }
+
+      img {
+        width: 80px;
+        height: 80px;
+      }
+
+      span {
+        width: 4px;
+        height: 15px;
+        background-color: white;
+        margin: 0 4px;
+        border-radius: 4px;
+      }
+
+      span:nth-child(1),
+      span:nth-child(3) {
+        animation-name: music;
+        animation-duration: 1s;
+        animation-iteration-count: infinite;
+      }
+
+      span:nth-child(2) {
+        animation-name: music-reverse;
+        animation-duration: 1s;
+        animation-iteration-count: infinite;
+      }
+
+      #container {
+        position: relative;
+        display: flex;
+        flex-direction: row;
+        justify-content: start;
+        align-items: center;
+        width: 100%;
+        max-width: 250px;
+        padding: 12px 12px 12px 52px;
+        border-radius: 15px;
+        opacity: 0;
+      }
+
+      .active {
+        opacity: 1 !important;
+      }
+
+      .bg {
+        width: 100%;
+        height: 100%;
+        background-color: #666666;
+        filter: blur(2px) brightness(50%);
+        -webkit-filter: blur(2px) brightness(50%);
+        border-radius: 15px;
+        position: absolute;
+        top: 0;
+        left: 0;
+        z-index: -5;
+      }
+
+      .cover {
+        position: absolute;
+        overflow: hidden;
+        width: 80px;
+        height: 80px;
+        border-radius: 15px;
+        margin-left: -92px;
+      }
+
+      .animation {
+        position: absolute;
+        display: flex;
+        flex-direction: row;
+        justify-content: center;
+        align-items: center;
+        width: 100%;
+        height: 100%;
+      }
+
+      @keyframes music {
+        0% {
+          height: 15px;
+        }
+        50% {
+          height: 30px;
+        }
+        100% {
+          height: 15px;
+        }
+      }
+
+      @keyframes music-reverse {
+        0% {
+          height: 30px;
+        }
+        50% {
+          height: 15px;
+        }
+        100% {
+          height: 30px;
+        }
+      }
+    </style>
+  </head>
+
+  <body>
+    <div id="container">
+      <div class="cover">
+        <div class="animation">
+          <span></span>
+          <span></span>
+          <span></span>
+        </div>
+        <img id="image" src="/cover.png" />
+      </div>
+      <div class="column">
+        <h2 id="artists">Placeholder</h2>
+        <h1 id="title">Placeholder</h1>
+      </div>
+      <div class="bg"></div>
+    </div>
+
+    <script>
+      const urlParams = new URLSearchParams(window.location.search);
+      const refreshToken = urlParams.get("refresh_token");
+      let token = "";
+
+      const containerEl = document.querySelector("#container");
+      const imageEl = document.querySelector("#image");
+      const artistsEl = document.querySelector("#artists");
+      const titleEl = document.querySelector("#title");
+
+      const timeoutPromise = (delay) => {
+        return new Promise((resolve) => {
+          setTimeout(() => {
+            resolve();
+          }, delay);
+        });
+      };
+
+      const setSongInfo = (song) => {
+        let image = null;
+        const title = song.name;
+        const artists = song.artists.map((a) => a.name).join(", ");
+
+        if (
+          typeof song.album.images !== "undefined" &&
+          song.album.images.length > 0
+        ) {
+          image = song.album.images[0].url;
+        } else {
+          image = "/cover.png";
+        }
+
+        imageEl.src = image;
+        titleEl.innerHTML = title;
+        artistsEl.innerHTML = artists;
+      };
+
+      const fetchToken = () => {
+        return fetch(`/api/token?refresh_token=${refreshToken}`)
+          .then((res) => {
+            if (res.status !== 200) {
+              return timeoutPromise(2000).then(() => fetchToken());
+            }
+            return res.json();
+          })
+          .then((data) => {
+            token = data.token || "";
+            return fetchSong();
+          })
+          .catch((err) => {
+            console.error(err);
+            return timeoutPromise(2000).then(() => fetchToken());
+          });
+      };
+
+      const fetchSong = () => {
+        return fetch("https://api.spotify.com/v1/me/player/currently-playing", {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        })
+          .then((res) => {
+            if (res.status === 401) {
+              return fetchToken();
+            }
+            if (res.status === 429) {
+              if (res.headers.has("Retry-After")) {
+                const delay = parseInt(res.headers.get("Retry-After"), 10) + 1;
+                return timeoutPromise(delay * 1000).then(() => fetchSong());
+              }
+            }
+            return res.json();
+          })
+          .then((data) => {
+            if (data.is_playing && data.currently_playing_type === "track") {
+              setSongInfo(data.item);
+              containerEl.classList.add("active");
+            } else {
+              containerEl.classList.remove("active");
+            }
+            return timeoutPromise(1000).then(() => fetchSong());
+          })
+          .catch((err) => {
+            console.error(err);
+            return timeoutPromise(15000).then(() => fetchSong());
+          });
+      };
+
+      fetchToken();
+    </script>
+  </body>
+</html>
