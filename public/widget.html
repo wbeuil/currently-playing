@@ -21,37 +21,20 @@
 
       h1 {
         font-size: 24px;
+        white-space: nowrap;
+        width: fit-content;
       }
 
       h2 {
         font-size: 15px;
         margin-bottom: 4px;
+        white-space: nowrap;
+        width: fit-content;
       }
 
       img {
         width: 80px;
         height: 80px;
-      }
-
-      span {
-        width: 4px;
-        height: 15px;
-        background-color: white;
-        margin: 0 4px;
-        border-radius: 4px;
-      }
-
-      span:nth-child(1),
-      span:nth-child(3) {
-        animation-name: music;
-        animation-duration: 1s;
-        animation-iteration-count: infinite;
-      }
-
-      span:nth-child(2) {
-        animation-name: music-reverse;
-        animation-duration: 1s;
-        animation-iteration-count: infinite;
       }
 
       #container {
@@ -60,9 +43,9 @@
         flex-direction: row;
         justify-content: start;
         align-items: center;
-        width: 100%;
-        max-width: 250px;
-        padding: 12px 12px 12px 52px;
+        height: 50px;
+        width: 250px;
+        padding: 12px 0px 12px 40px;
         border-radius: 15px;
         opacity: 0;
       }
@@ -90,40 +73,42 @@
         width: 80px;
         height: 80px;
         border-radius: 15px;
-        margin-left: -92px;
+        margin-left: -80px;
+        box-shadow: 0 0 3px 1px rgba(0, 0, 0, 0.1);
       }
 
-      .animation {
-        position: absolute;
-        display: flex;
-        flex-direction: row;
-        justify-content: center;
-        align-items: center;
-        width: 100%;
-        height: 100%;
+      .column {
+        overflow: hidden;
+        padding-left: 12px;
       }
 
-      @keyframes music {
+      .scrolling {
+        animation-name: first, second;
+        animation-duration: 10s, 25s;
+        animation-delay: 10s, 20s;
+        animation-timing-function: linear, linear;
+        animation-iteration-count: infinite, infinite;
+      }
+
+      @keyframes first {
         0% {
-          height: 15px;
-        }
-        50% {
-          height: 30px;
+          transform: translateX(0%);
         }
         100% {
-          height: 15px;
+          transform: translateX(-100%);
         }
       }
 
-      @keyframes music-reverse {
+      @keyframes second {
         0% {
-          height: 30px;
+          transform: translateX(260px);
         }
-        50% {
-          height: 15px;
+        20%,
+        60% {
+          transform: translateX(0%);
         }
         100% {
-          height: 30px;
+          transform: translateX(-100%);
         }
       }
     </style>
@@ -132,11 +117,6 @@
   <body>
     <div id="container">
       <div class="cover">
-        <div class="animation">
-          <span></span>
-          <span></span>
-          <span></span>
-        </div>
         <img id="image" src="/cover.png" />
       </div>
       <div class="column">
@@ -155,6 +135,7 @@
       const imageEl = document.querySelector("#image");
       const artistsEl = document.querySelector("#artists");
       const titleEl = document.querySelector("#title");
+      const padding = 52;
 
       const timeoutPromise = (delay) => {
         return new Promise((resolve) => {
@@ -178,9 +159,36 @@
           image = "/cover.png";
         }
 
-        imageEl.src = image;
-        titleEl.innerHTML = title;
-        artistsEl.innerHTML = artists;
+        if (imageEl.src !== image) {
+          imageEl.src = image;
+        }
+
+        if (titleEl.innerHTML !== title) {
+          titleEl.innerHTML = title;
+
+          if (containerEl.offsetWidth - padding < titleEl.offsetWidth) {
+            titleEl.classList.add("scrolling");
+          } else {
+            titleEl.classList.remove("scrolling");
+          }
+        }
+
+        let timeout;
+        if (artistsEl.innerHTML !== artists) {
+          artistsEl.innerHTML = artists;
+
+          if (timeout) {
+            clearTimeout(timeout);
+          }
+
+          if (containerEl.offsetWidth - padding < artistsEl.offsetWidth) {
+            timeout = setTimeout(() => {
+              artistsEl.classList.add("scrolling");
+            }, 5000);
+          } else {
+            artistsEl.classList.remove("scrolling");
+          }
+        }
       };
 
       const fetchToken = () => {
@@ -216,6 +224,9 @@
                 const delay = parseInt(res.headers.get("Retry-After"), 10) + 1;
                 return timeoutPromise(delay * 1000).then(() => fetchSong());
               }
+            }
+            if (res.status === 204) {
+              return timeoutPromise(1000).then(() => fetchSong());
             }
             return res.json();
           })
